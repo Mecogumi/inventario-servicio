@@ -1,0 +1,412 @@
+<div class="min-h-screen bg-gray-100 p-8">
+  <div class="max-w-7xl mx-auto">
+    <!-- Header -->
+    <div class="mb-8">
+      <div class="flex justify-between items-center mb-6">
+        <h1 class="text-3xl font-bold text-gray-800">Sistema de Inventario</h1>
+        <div class="flex items-center space-x-4">
+        <button
+          (click)="toggleViewMode()"
+          [disabled]="isLoading"
+          class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+        >
+          <svg *ngIf="viewMode === 'grid'" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+          </svg>
+          <svg *ngIf="viewMode === 'table'" class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+          </svg>
+          {{ viewMode === 'grid' ? 'Vista Tabla' : 'Vista Tarjetas' }}
+        </button>
+        <button
+          (click)="exportData()"
+          [disabled]="isLoading"
+          class="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
+        >
+          Exportar CSV
+        </button>
+        <button
+          (click)="openAddModal()"
+          [disabled]="isLoading"
+          class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
+        >
+          + Agregar Artículo
+        </button>
+      </div>
+      </div>
+
+      <!-- Search and Sort Bar -->
+      <div class="flex gap-4">
+        <!-- Search Bar -->
+        <div class="relative flex-1">
+          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+          </div>
+          <input
+            type="text"
+            [(ngModel)]="searchTerm"
+            (input)="onSearchChange()"
+            placeholder="Buscar artículos por nombre..."
+            class="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm"
+          />
+          <div *ngIf="searchTerm" class="absolute inset-y-0 right-0 pr-3 flex items-center">
+            <button
+              (click)="searchTerm = ''; onSearchChange()"
+              class="text-gray-400 hover:text-gray-600"
+            >
+              <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Sort Selector -->
+        <div class="relative">
+          <select
+            [(ngModel)]="sortBy"
+            (change)="onSortChange()"
+            class="appearance-none bg-white border border-gray-300 rounded-lg py-3 pl-4 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
+          >
+            <option value="none">Sin ordenar</option>
+            <option value="disponible_asc">Existencia: Menor a Mayor</option>
+            <option value="disponible_desc">Existencia: Mayor a Menor</option>
+          </select>
+          <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"></path>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div *ngIf="isLoading && items.length === 0" class="text-center py-12">
+      <div class="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+      <p class="mt-4 text-gray-600">Cargando inventario...</p>
+    </div>
+
+    <!-- Empty State -->
+    <div *ngIf="!isLoading && items.length === 0 && !searchTerm" class="text-center py-12 bg-white rounded-lg shadow">
+      <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
+      </svg>
+      <h3 class="mt-2 text-lg font-medium text-gray-900">No hay artículos</h3>
+      <p class="mt-1 text-gray-500">Comienza agregando tu primer artículo al inventario.</p>
+      <div class="mt-6">
+        <button
+          (click)="openAddModal()"
+          class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+        >
+          + Agregar Artículo
+        </button>
+      </div>
+    </div>
+
+    <!-- No Results -->
+    <div *ngIf="!isLoading && searchTerm && filteredItems.length === 0" class="text-center py-12 bg-white rounded-lg shadow">
+      <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+      </svg>
+      <h3 class="mt-2 text-lg font-medium text-gray-900">No se encontraron resultados</h3>
+      <p class="mt-1 text-gray-500">No hay artículos que coincidan con "{{ searchTerm }}"</p>
+      <div class="mt-6">
+        <button
+          (click)="searchTerm = ''; onSearchChange()"
+          class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+        >
+          Limpiar búsqueda
+        </button>
+      </div>
+    </div>
+
+    <!-- Items Grid View -->
+    <div *ngIf="filteredItems.length > 0 && viewMode === 'grid'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div *ngFor="let item of filteredItems" class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+        <!-- Image -->
+        <div class="h-48 bg-gray-200 flex items-center justify-center overflow-hidden">
+          <img
+            *ngIf="item.imageUrl"
+            [src]="item.imageUrl"
+            [alt]="item.name"
+            class="w-full h-full object-cover"
+            onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'"
+          />
+          <div class="flex items-center justify-center w-full h-full" [class.hidden]="item.imageUrl">
+            <svg class="h-16 w-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+            </svg>
+          </div>
+        </div>
+
+        <!-- Content -->
+        <div class="p-4">
+          <h3 class="text-lg font-semibold text-gray-800 mb-2">{{ item.name }}</h3>
+
+          <!-- Cantidades -->
+          <div class="grid grid-cols-2 gap-2 mb-3">
+            <div class="bg-blue-50 p-2 rounded">
+              <p class="text-xs text-blue-600 font-medium">Necesarios</p>
+              <p class="text-lg font-bold text-blue-700">{{ item.cantidad_necesaria }}</p>
+            </div>
+            <div class="bg-green-50 p-2 rounded">
+              <p class="text-xs text-green-600 font-medium">Disponibles</p>
+              <p class="text-lg font-bold text-green-700">{{ item.cantidad_disponible }}</p>
+            </div>
+          </div>
+
+          <p class="text-xs text-gray-500 mb-4">
+            {{ item.created_at | date:'dd/MM/yyyy HH:mm' }}
+          </p>
+
+          <!-- Actions -->
+          <div class="flex space-x-2">
+            <button
+              (click)="openEditModal(item)"
+              [disabled]="isLoading"
+              class="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
+            >
+              Editar
+            </button>
+            <button
+              (click)="openDeleteConfirm($event, item)"
+              [disabled]="isLoading"
+              class="flex-1 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
+            >
+              Eliminar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Items Table View -->
+    <div *ngIf="filteredItems.length > 0 && viewMode === 'table'" class="bg-white rounded-lg shadow-md overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Imagen</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cant. Necesaria</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cant. Disponible</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+              <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            <tr *ngFor="let item of filteredItems" class="hover:bg-gray-50">
+              <!-- Imagen -->
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="h-16 w-16 bg-gray-200 rounded flex items-center justify-center overflow-hidden">
+                  <img
+                    *ngIf="item.imageUrl"
+                    [src]="item.imageUrl"
+                    [alt]="item.name"
+                    class="h-full w-full object-cover"
+                  />
+                  <svg *ngIf="!item.imageUrl" class="h-8 w-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                  </svg>
+                </div>
+              </td>
+              <!-- Nombre -->
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm font-medium text-gray-900">{{ item.name }}</div>
+              </td>
+              <!-- Cantidad Necesaria -->
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span class="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                  {{ item.cantidad_necesaria }}
+                </span>
+              </td>
+              <!-- Cantidad Disponible -->
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span class="px-3 py-1 inline-flex text-sm leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                  {{ item.cantidad_disponible }}
+                </span>
+              </td>
+              <!-- Fecha -->
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                {{ item.created_at | date:'dd/MM/yyyy HH:mm' }}
+              </td>
+              <!-- Acciones -->
+              <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                <button
+                  (click)="openEditModal(item)"
+                  [disabled]="isLoading"
+                  class="text-yellow-600 hover:text-yellow-900 mr-3 disabled:opacity-50"
+                >
+                  Editar
+                </button>
+                <button
+                  (click)="openDeleteConfirm($event, item)"
+                  [disabled]="isLoading"
+                  class="text-red-600 hover:text-red-900 disabled:opacity-50"
+                >
+                  Eliminar
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div *ngIf="isModalOpen" class="fixed inset-0 flex items-center justify-center z-50" style="background-color: rgba(0, 0, 0, 0.5); backdrop-filter: blur(2px);">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+      <!-- Modal Header -->
+      <div class="flex justify-between items-center p-6 border-b">
+        <h2 class="text-xl font-bold text-gray-800">
+          {{ isEditMode ? 'Editar Artículo' : 'Nuevo Artículo' }}
+        </h2>
+        <button
+          (click)="closeModal()"
+          [disabled]="isLoading"
+          class="text-gray-400 hover:text-gray-600 transition-colors"
+        >
+          <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-6 space-y-4">
+        <!-- Name Input -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">
+            Nombre del Artículo
+          </label>
+          <input
+            type="text"
+            [(ngModel)]="currentItem.name"
+            [disabled]="isLoading"
+            placeholder="Ingresa el nombre..."
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
+          />
+        </div>
+
+        <!-- Cantidades -->
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Cantidad Necesaria
+            </label>
+            <input
+              type="number"
+              [(ngModel)]="currentItem.cantidad_necesaria"
+              [disabled]="isLoading"
+              min="0"
+              placeholder="0"
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Cantidad Disponible
+            </label>
+            <input
+              type="number"
+              [(ngModel)]="currentItem.cantidad_disponible"
+              [disabled]="isLoading"
+              min="0"
+              placeholder="0"
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:opacity-50"
+            />
+          </div>
+        </div>
+
+        <!-- Image Upload -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">
+            Imagen del Artículo
+          </label>
+          <input
+            type="file"
+            (change)="onFileSelected($event)"
+            [disabled]="isLoading"
+            accept="image/*"
+            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
+          />
+        </div>
+
+        <!-- Image Preview -->
+        <div *ngIf="selectedImage" class="mt-4">
+          <p class="text-sm font-medium text-gray-700 mb-2">Vista Previa:</p>
+          <div class="w-full h-48 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
+            <img
+              [src]="selectedImage"
+              [alt]="currentItem.name"
+              class="max-w-full max-h-full object-contain"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="flex justify-end space-x-3 p-6 border-t">
+        <button
+          (click)="closeModal()"
+          [disabled]="isLoading"
+          class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+        >
+          Cancelar
+        </button>
+        <button
+          (click)="saveItem()"
+          [disabled]="isLoading"
+          class="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+        >
+          {{ isLoading ? 'Guardando...' : (isEditMode ? 'Actualizar' : 'Guardar') }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de Confirmación de Eliminación -->
+<div *ngIf="isDeleteConfirmOpen" class="fixed inset-0 flex items-center justify-center z-50" style="background-color: rgba(0, 0, 0, 0.5); backdrop-filter: blur(2px);">
+  <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+    <!-- Modal Header -->
+    <div class="flex items-center p-6 border-b">
+      <svg class="h-6 w-6 text-red-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+      </svg>
+      <h2 class="text-xl font-bold text-gray-800">Confirmar Eliminación</h2>
+    </div>
+
+    <!-- Modal Body -->
+    <div class="p-6">
+      <p class="text-gray-700">
+        ¿Estás seguro de que deseas eliminar <strong>"{{ itemToDelete?.name }}"</strong>?
+      </p>
+      <p class="text-gray-500 text-sm mt-2">
+        Esta acción no se puede deshacer.
+      </p>
+    </div>
+
+    <!-- Modal Footer -->
+    <div class="flex justify-end space-x-3 p-6 border-t bg-gray-50">
+      <button
+        (click)="closeDeleteConfirm()"
+        [disabled]="isLoading"
+        class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors disabled:opacity-50"
+      >
+        Cancelar
+      </button>
+      <button
+        (click)="confirmDelete()"
+        [disabled]="isLoading"
+        class="px-6 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+      >
+        {{ isLoading ? 'Eliminando...' : 'Eliminar' }}
+      </button>
+    </div>
+  </div>
+</div>

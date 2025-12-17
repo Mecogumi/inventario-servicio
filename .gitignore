@@ -40,3 +40,11 @@ testem.log
 # System files
 .DS_Store
 Thumbs.db
+
+# Tauri
+/src-tauri/target
+
+# Inventory data (solo aplica si se ejecuta en modo dev desde la raíz)
+inventario.db
+inventory_images/
+inventario_export.csv
